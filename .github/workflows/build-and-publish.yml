@@ -1,0 +1,91 @@
+
+# A workflow, which builds the ComfyUI Docker image and publishes it to the GitHub Container Registry
+name: Create and publish a Docker image
+
+# Configures this workflow to run when a tag was pushed to the repository that matches the pattern "v[0-9]+.[0-9]+.[0-9]+", which is a semantic
+# versioning pattern; this token will be created when a new release is created; the release event cannot be used, because the docker/metadata-action
+# action does not support the release event
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+# Defines two custom environment variables for the host name of the registry (ghcr.io for the GitHub Container Registry) and the name of the image,
+# which is set to the name of the repository
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# This workflow has a single job, which builds the Docker image and publishes it to the GitHub Container Registry
+jobs:
+
+  # The `build-and-publish` builds the Docker image, and publishes it to the GitHub Container Registry
+  build-and-publish:
+
+    # This job will run on an Ubuntu GitHub runner, which is a good default choice and it comes with Docker pre-installed
+    runs-on: ubuntu-latest
+
+    # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    # This job 1) checks out the repository, 2) logs in to the GitHub Container Registry, 3) extracts metadata for the Docker image, 4) builds and
+    # pushes the Docker image, and 5) generates an artifact attestation for the image
+    steps:
+
+      # Checks out the repository so that the workflow can access the files in the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Logs in to the GitHub Container Registry registry using the account of the user that triggered the workflow run and the GitHub token that is
+      # an automatically generated secret that is usually only used to access the repository (the permissions defined above allow the token to also
+      # publish Docker images to the GitHub Container Registry) that will publish the packages. Once published, the packages are scoped to the account defined here.
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extracts metadata from the Git repository and GitHub, which are then used to label and tag the Docker image that will be build in the next
+      # step; the "id" property specifies that the output of this step will be available in subsequent steps under the name "metadata"; tags for the
+      # SHA of the commit, the full semantic version extracted from the current tag (e.g., tag "v1.2.3" will be extracted as "1.2.3"), and the major
+      # and minor version extracted from the current version (e.g., tag "v1.2.3" will be extracted as "1.2"), as well as a "latest" tag are added;
+      # besides the hardcoded labels for the title and authors of the image, the GitHub description, GitHub license, GitHub revision, GitHub source
+      # URL, GitHub URL, and creation date and time are extracted as labels
+      - name: Extract Tags & Labels for Docker
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=ComfyUI Docker
+            org.opencontainers.image.authors=David Neumann <david.neumann@lecode.de>
+
+      # Builds the Docker image for ComfyUI; if the build succeeds, it is pushed to the GitHub Container Registry; the "context" parameter specifies
+      # the build context, which is the directory that contains the Dockerfile; the tags and labels extracted in the previous step are used to tag
+      # and label the image
+      - name: Build and Push Docker Image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+
+      # Generates an artifact attestation for the image, which is an unforgeable statement about where and how it was built; it increases supply chain
+      # security for people who consume the image
+      - name: Generate Artifact Attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

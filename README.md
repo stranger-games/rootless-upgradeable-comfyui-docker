@@ -8,31 +8,57 @@ To get started, you have to install [Docker](https://www.docker.com/). This can 
 
 To enable the usage of NVIDIA GPUs, the NVIDIA Container Toolkit must be installed. The installation process is detailed in the [official documentation](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
-## Building
+## Installation
 
-The image can be build using the following command:
+The ComfyUI Docker image is available from the [GitHub Container Registry](https://ghcr.io). Installing ComfyUI is as simple as pulling the image and starting a container, which can be achieved using the following command:
 
-```sh
-docker build --tag lecode/comfyui-docker:latest .
-```
-
-## Running
-
-The built image can be run like so:
-
-```sh
+```shell
 docker run \
     --name comfyui \
     --detach \
     --restart unless-stopped \
     --volume <path/to/models/folder>:/opt/comfyui/models \
     --publish 8188:8188 \
-    --runtime=nvidia \
+    --runtime nvidia \
     --gpus all \
-    lecode/comfyui-docker:latest
+    ghcr.io/lecode-official/comfyui-docker:latest
 ```
 
 Please note, that the `<path/to/models/folder>` must be replaced with a path to a folder on the host system where the models will be stored, e.g., `$HOME/.comfyui`.
+
+The `--detach` flag causes the container to run in the background and `--restart unless-stopped` configures the Docker Engine to automatically restart the container if it stopped itself, experienced an error, or the computer was shutdown, unless you explicitly stopped the container using `docker stop`. This means that ComfyUI will be automatically started in the background when you boot your computer. The `--runtime nvidia` and `--gpus all` arguments enable ComfyUI to access the GPUs of your host system. If you do not want to expose all GPUs, you can specify the desired GPU index or ID instead.
+
+After the container has started, you can navigate to [localhost:8188](http://localhost:8188) to access ComfyUI.
+
+If you want to stop ComfyUI, you can use the following commands:
+
+```shell
+docker stop comfyui
+docker rm comfyui
+```
+
+## Building
+
+If you want to use the bleeding edge development version of the Docker image, you can also clone the repository and build the image yourself:
+
+```shell
+git clone https://github.com/lecode-official/comfyui-docker.git
+docker build --tag lecode/comfyui-docker:latest comfyui-docker
+```
+
+Now, a container can be started like so:
+
+```shell
+docker run \
+    --name comfyui \
+    --detach \
+    --restart unless-stopped \
+    --volume <path/to/models/folder>:/opt/comfyui/models \
+    --publish 8188:8188 \
+    --runtime nvidia \
+    --gpus all \
+    lecode/comfyui-docker:latest
+```
 
 ## License
 

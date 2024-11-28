@@ -2,18 +2,6 @@
 # This image is based on the latest official PyTorch image, because it already contains CUDA, CuDNN, and PyTorch
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 
-# Adds some metadata to the resulting Docker image via labels, the label names are standardized by the Open Container Initiative (OCI) in their Image
-# Specification Annotation
-LABEL org.opencontainers.image.authors="David Neumann <david.neumann@lecode.de>"
-LABEL org.opencontainers.image.url="https://github.com/lecode-official/comfyui-docker"
-LABEL org.opencontainers.image.documentation="https://github.com/lecode-official/comfyui-docker/tree/main/docs"
-LABEL org.opencontainers.image.source="https://github.com/lecode-official/comfyui-docker/tree/main"
-LABEL org.opencontainers.image.version="0.1.0"
-LABEL org.opencontainers.image.vendor="David Neumann"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.title="ComfyUI Docker"
-LABEL org.opencontainers.image.description="A Docker image running ComfyUI."
-
 # Installs Git, because ComfyUI and the ComfyUI Manager are installed by cloning their respective Git repositories
 RUN apt update --assume-yes && \
     apt install --assume-yes git
