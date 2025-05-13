@@ -1,0 +1,32 @@
+name: comfyui-docker
+services:
+    comfyui-docker:
+        build:
+          args:
+            ROOTLESS_MODE: ${ROOTLESS_MODE:-0}
+            USER_ID: ${USER_ID:-1234}
+            GROUP_ID: ${GROUP_ID:-1234}
+          context: .
+        container_name: comfyui
+        restart: unless-stopped
+        environment:
+            - USER_ID=${USER_ID}
+            - GROUP_ID=${GROUP_ID}
+        volumes:
+            - ${COMFYUI_FOLDER}:/home/comfyui/comfyui:rw
+            - ${MODELS_FOLDER}:/home/comfyui/comfyui/models:rw
+            - ${CUSTOM_NODES_FOLDER}:/home/comfyui/comfyui/custom_nodes:rw
+            - ${INPUT_FOLDER}:/home/comfyui/comfyui-ext/input_folder:rw
+            - ${OUTPUT_FOLDER}:/home/comfyui/comfyui-ext/output_folder:rw
+            - ${USER_FOLDER}:/home/comfyui/comfyui-ext/user_folder:rw
+        ports:
+            - ${PORT}:8188
+        runtime: nvidia
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities:
+                              - gpu

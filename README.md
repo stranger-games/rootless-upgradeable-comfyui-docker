@@ -1,97 +1,108 @@
 # ComfyUI Docker
 
-This is a Docker image for [ComfyUI](https://www.comfy.org/), which makes it extremely easy to run ComfyUI on Linux and Windows WSL2. The image also includes the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Managergithub ) extension.
+This is a rootless, upgradeable Docker image source for [ComfyUI](https://www.comfy.org/), which makes it extremely easy to run ComfyUI on Linux and Windows WSL2. The image also automatically install the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Managergithub ) extension.
+
+## ROOTLESS_MODE
+
+There are two rootless modes, that you can switch between them. ROOTLESS_MODE 1 will run the container as non-root user, ROOTLESS_MODE 0 (the default) will run the container as root but run comfyui as non-root user.
+
+Mode 1 is more secure but you need to set ownership on the host machine of the mounted folders manually, while mode 0 should automatically do chown for the mounted folders.
+
+!Warning!
+
+In mode 0, if the environment variables USER_ID and GROUP_ID are not set, the container will run comfyui as root.
+
+## Upgradeable
+
+The comfyui repository is cloned in the entrypoint rather than the Dockerfile allowing the user to mount the directory /home/comfyui/comfyui to avoid reinstallation when updating the image. A conda venv environment is also created in /home/comfyui/comfyui/venv.
+
+Even if the user removes the image and re-run it later, if the mounted folder or volume at /home/comfyui/comfyui hasn't changed, no reinstallation is necessary and all python dependencies will not need reinstallation.
 
 ## Getting Started
 
 To get started, you have to install [Docker](https://www.docker.com/). This can be either Docker Engine, which can be installed by following the [Docker Engine Installation Manual](https://docs.docker.com/engine/install/) or Docker Desktop, which can be installed by [downloading the installer](https://www.docker.com/products/docker-desktop/) for your operating system.
 
+For easier useage, please make sure to install docker compose.
+
 To enable the usage of NVIDIA GPUs, the NVIDIA Container Toolkit must be installed. The installation process is detailed in the [official documentation](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
 ## Installation
 
-The ComfyUI Docker image is available from the [GitHub Container Registry](https://ghcr.io). Installing ComfyUI is as simple as pulling the image and starting a container, which can be achieved using the following command:
+While you can install it using docker CLI I recommend using the composer file. The composer method will be explained below.
+
+First you need to clone this repository.
 
 ```shell
-docker run \
-    --name comfyui \
-    --detach \
-    --restart unless-stopped \
-    --env USER_ID="$(id -u)" \
-    --env GROUP_ID="$(id -g)" \
-    --volume "<path/to/models/folder>:/opt/comfyui/models:rw" \
-    --volume "<path/to/custom/nodes/folder>:/opt/comfyui/custom_nodes:rw" \
-    --publish 8188:8188 \
-    --runtime nvidia \
-    --gpus all \
-    ghcr.io/lecode-official/comfyui-docker:latest
+git clone https://github.com/stranger-games/rootless-upgradeable-comfyui-docker.git
 ```
+### Docker Compose (Recommended)
 
-Please note, that the `<path/to/models/folder>` and `<path/to/custom/nodes/folder>` must be replaced with paths to directories on the host system where the models and custom nodes will be stored, e.g., `$HOME/.comfyui/models` and `$HOME/.comfyui/custom-nodes`, which can be created like so: `mkdir -p $HOME/.comfyui/{models,custom-nodes}`.
+Docker Compose is as simple as setting up the environment variables and use the bundled docker-compose.yml file.
 
-The `--detach` flag causes the container to run in the background and `--restart unless-stopped` configures the Docker Engine to automatically restart the container if it stopped itself, experienced an error, or the computer was shutdown, unless you explicitly stopped the container using `docker stop`. This means that ComfyUI will be automatically started in the background when you boot your computer. The two `--env` arguments inject the user ID and group ID of the current host user into the container. During startup, a user with the same user ID and group ID will be created, and ComfyUI will be run using this user. This ensures that files written to the volumes (e.g., models and custom nodes installed with the ComfyUI Manager) will be owned by the host system's user. Normally, the user inside the container is `root`, which means that the files that are written from the container to the host system are also owned by `root`. If you have run ComfyUI Docker without setting the environment variables, then you may have to change the owner of the files in the models and custom nodes directories: `sudo chown -r "$(id -un):$(id -gn)" <path/to/models/folder> <path/to/custom/nodes/folder>`. The `--runtime nvidia` and `--gpus all` arguments enable ComfyUI to access the GPUs of your host system. If you do not want to expose all GPUs, you can specify the desired GPU index or ID instead.
+#### Environment Variables (REQUIRED)
 
-After the container has started, you can navigate to [localhost:8188](http://localhost:8188) to access ComfyUI.
+There are required environment variables that need to be set correctly to build and run the image smoothly.
 
-If you want to stop ComfyUI, you can use the following commands:
+There is a bundled env example file that you can copy and start from there or you can set the environment variables however you like.
 
 ```shell
-docker stop comfyui
-docker rm comfyui
+cp .env.example .env
 ```
 
-> [!WARNING]
-> While the custom nodes themselves are installed outside of the container, their requirements are installed inside of the container. This means that stopping and removing the container will remove the installed requirements. When the container is started again, the requirements will be automatically installed, but this may, depending on the number of custom nodes and their requirements, take some time.
+
+##### Volume Environment Variables
+| Folder             | Description                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MODELS_FOLDER             | Where your _model_ files are stored.                                                                                                                                                                                                                                                                                                                                                                            |
+| CUSTOM_NODES_FOLDER       | Where your _custom nodes_ are stored.                                                                                                                                                                                                                                                                                                                                                                           |
+| OUTPUT_FOLDER             | Where your _output files_ are stored.                                                                                                                                                                                                                                                                                                                                                                           |
+| INPUT_FOLDER              | Where any _input files_ are saved by ComfyUI.                                                                                                                                                                                                                                                                                                                                                                   |
+| USER_FOLDER           | Where your settings for ComfyUI and ComfyUI Manager are stored, as well as your workflows.                                                                                                                                                                                                                                                                                                                      |
+| COMFYUI_FOLDER           | Where the comfyui git repository and venv folder are stored.                                                                                                                                                                                                                                                                                                                                                   |
+
+##### Other Environment Variables
+
+| Env Variable | Description                                                                                                                                                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PORT     | The port you can access comfyui using.                                                                                                                                               |
+| USER_ID         | The _user id_ of your host machine's linux user, if you want the container to attempt to use your user so the files in volumes are owned by your user. You can find this by running `id -u`.          |
+| GROUP_ID         | The _group id_ of your host machine's linux user, if you want the container to attempt to use your user so the files in volumes are owned by your user's group. You can find this by running `id -g`. |
+| ROOTLESS_MODE         | Check the ROOTLESS_MODE section above. If you set it to 0 (the default) make sure to specify the USER_ID and GROUP_ID above, otherwise comfyui will be run as root |
+
+#### Permissoins
+
+To ensure seamless rootless operation, I recommend creating a non-privileged user on the host machine that owns all the mounted volume folders.
+
+```shell
+sudo groupadd comfyui
+sudo useradd --gid "$(id -g comfyui)" comfyui
+
+sudo chown --recursive comfyui:comfyui /path/to/mounted/folder1
+sudo chown --recursive comfyui:comfyui /path/to/mounted/folder2
+```
+
+Then make sure to set the env variables USER_ID and GROUP_ID corresponding to this user. To find out the new user's userid and groupid, use the following command.
+
+```shell
+id -u comfyui
+id -g comfyui
+```
+
+#### Running the Image
+
+After creating your .env file or setting the required environment variables however you please, and making sure you set the permissions correctly, you can run the container using the following command.
+
+```shell
+docker compose up
+```
 
 ## Updating
 
 To update ComfyUI Docker to the latest version you have to first stop the running container, then pull the new version, optionally remove dangling images, and then restart the container:
 
 ```shell
-docker stop comfyui
-docker rm comfyui
-
-docker pull ghcr.io/lecode-official/comfyui-docker:latest
-docker image prune # Optionally remove dangling images
-
-docker run \
-    --name comfyui \
-    --detach \
-    --restart unless-stopped \
-    --env USER_ID="$(id -u)" \
-    --env GROUP_ID="$(id -g)" \
-    --volume "<path/to/models/folder>:/opt/comfyui/models:rw" \
-    --volume "<path/to/custom/nodes/folder>:/opt/comfyui/custom_nodes:rw" \
-    --publish 8188:8188 \
-    --runtime nvidia \
-    --gpus all \
-    ghcr.io/lecode-official/comfyui-docker:latest
-```
-
-## Building
-
-If you want to use the bleeding edge development version of the Docker image, you can also clone the repository and build the image yourself:
-
-```shell
-git clone https://github.com/lecode-official/comfyui-docker.git
-docker build --tag lecode/comfyui-docker:latest comfyui-docker
-```
-
-Now, a container can be started like so:
-
-```shell
-docker run \
-    --name comfyui \
-    --detach \
-    --restart unless-stopped \
-    --env USER_ID="$(id -u)" \
-    --env GROUP_ID="$(id -g)" \
-    --volume "<path/to/models/folder>:/opt/comfyui/models:rw" \
-    --volume "<path/to/custom/nodes/folder>:/opt/comfyui/custom_nodes:rw" \
-    --publish 8188:8188 \
-    --runtime nvidia \
-    --gpus all \
-    lecode/comfyui-docker:latest
+git pull
+docker compose up --build
 ```
 
 ## License
